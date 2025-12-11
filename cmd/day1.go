@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 
@@ -25,14 +26,6 @@ func init() {
 
 func day1run(cmd *cobra.Command, args []string) {
 	followUp, _ := cmd.Flags().GetBool("follow-up")
-	if followUp {
-		day1FollowUp(cmd, args)
-	} else {
-		day1Base(cmd, args)
-	}
-}
-
-func day1Base(cmd *cobra.Command, args []string) {
 	inputFile, _ := cmd.Flags().GetString("input-file")
 	instructions := readInput(inputFile)
 	// for _, instr := range instructions {
@@ -40,25 +33,42 @@ func day1Base(cmd *cobra.Command, args []string) {
 	// }
 
 	currentPosition := 50
-	timesAtZero := 0
+	password := 0
 
 	for _, instruction := range instructions {
+		previousPosition := currentPosition
 		if instruction.rotation == Left {
 			currentPosition -= instruction.distance
 		} else {
 			currentPosition += instruction.distance
 		}
 		// fmt.Printf("Position after applying %v: %d\n", instruction, currentPosition)
-		currentPosition = currentPosition % 100
-		if currentPosition == 0 {
-			timesAtZero++
+		if !followUp {
+			if currentPosition%100 == 0 {
+				password++
+			}
+		} else {
+			// case 1: from one sign to the opposite
+			if previousPosition > 0 && currentPosition <= 0 {
+				// fmt.Println("crossed from positive to negative")
+				password++
+			}
+			if previousPosition < 0 && currentPosition >= 0 {
+				// fmt.Println("crossed from negative to positive")
+				password++
+			}
+			// case 2: overflowing
+			excess := currentPosition / 100
+			// if excess != 0 {
+			// 	fmt.Printf("overflowed by %d\n", excess)
+			// }
+			password += int(math.Abs(float64(excess)))
 		}
-	}
-	fmt.Printf("The password is: %d\n", timesAtZero)
-}
 
-func day1FollowUp(cmd *cobra.Command, args []string) {
-	fmt.Println("day1 follow up, not implemented")
+		currentPosition %= 100
+
+	}
+	fmt.Printf("The password is: %d\n", password)
 }
 
 type Rotation int
