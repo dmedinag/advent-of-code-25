@@ -20,7 +20,6 @@ var day1Cmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(day1Cmd)
-	day1Cmd.Flags().BoolP("follow-up", "f", false, "runs the follow up")
 	day1Cmd.Flags().StringP("input-file", "i", "inputs/01", "select file to parse")
 }
 
