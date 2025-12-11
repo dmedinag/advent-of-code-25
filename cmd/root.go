@@ -26,4 +26,5 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolP("follow-up", "f", false, "runs the follow up")
+	rootCmd.PersistentFlags().StringP("input-file", "i", "inputs/01", "select file to parse")
 }

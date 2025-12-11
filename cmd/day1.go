@@ -20,13 +20,12 @@ var day1Cmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(day1Cmd)
-	day1Cmd.Flags().StringP("input-file", "i", "inputs/01", "select file to parse")
 }
 
 func day1run(cmd *cobra.Command, args []string) {
 	followUp, _ := cmd.Flags().GetBool("follow-up")
 	inputFile, _ := cmd.Flags().GetString("input-file")
-	instructions := readInput(inputFile)
+	instructions := readRotations(inputFile)
 	// for _, instr := range instructions {
 	// 	fmt.Println(instr.String())
 	// }
@@ -115,7 +114,7 @@ func parseInstruction(s string) Instruction {
 	}
 }
 
-func readInput(filename string) []Instruction {
+func readRotations(filename string) []Instruction {
 	file, err := os.Open(filename)
 	if err != nil {
 		log.Fatal(err)
