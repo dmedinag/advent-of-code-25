@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"bufio"
-	"fmt"
 	"log"
+	"math"
 	"os"
-	"strconv"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +22,7 @@ func init() {
 
 func day3Run(cmd *cobra.Command, args []string) {
 	inputFile, _ := cmd.Flags().GetString("input-file")
-	// isFollowUp, _ := cmd.Flags().GetBool("follow-up")
+	isFollowUp, _ := cmd.Flags().GetBool("follow-up")
 
 	banks := readBatteryBanks(inputFile)
 
@@ -32,15 +31,22 @@ func day3Run(cmd *cobra.Command, args []string) {
 	// }
 	commsChan := make(chan int)
 
+	var nBatteries int
+	if isFollowUp {
+		nBatteries = 12
+	} else {
+		nBatteries = 2
+	}
+
 	for _, bank := range banks {
-		go reportMaxBankJoltageTwoBatteries(bank, commsChan)
+		go reportMaxBankJoltageNBatteries(bank, nBatteries, commsChan)
 	}
 
 	joltage := 0
-	for range len(banks) {
+	for range len(banks) * nBatteries {
 		joltage += <-commsChan
 	}
-	log.Printf("Total joltage: %d\n", joltage)
+	log.Printf("Total joltage using max %d batteries per bank: %d\n", nBatteries, joltage)
 }
 
 func readBatteryBanks(filename string) [][]int {
@@ -72,20 +78,32 @@ func parseBatteryBank(text []byte) []int {
 	return bank
 }
 
-func reportMaxBankJoltageTwoBatteries(bank []int, c chan int) {
-	maxTens := -1
-	maxUnits := -1
-	for i, b := range bank {
-		if b > maxTens && i < len(bank)-1 {
-			maxUnits = -1
-			maxTens = b
-		} else {
-			if b > maxUnits {
-				maxUnits = b
-			}
+func reportMaxBankJoltageNBatteries(bank []int, nBatteries int, c chan int) {
+	// for a bank with batteries b1, b2, ..., bN, find the max across b0... b(N-nBatteries)
+	// For example for a bank consisting of batteries b0,b1,b2,b3 (N=4); and nBatteries=2,
+	// the first battery to be activated _must be_ within {b0,b1,b2} so that there exists a second battery to be activated
+	// Once the first battery has been found, we should repeat the process to find the rest of batteries.
+	// If the first activated battery is bX, we'll call this same function recursively on b(X+1)..bN with nBatteries-1
+	// until there are no more batteries left to activate
+
+	relevantBatteries := bank[:len(bank)-nBatteries+1]
+	maxIndex := -1
+	maxValue := -1
+	for i, b := range relevantBatteries {
+		if b == 9 {
+			maxIndex = i
+			maxValue = b
+			break
+		}
+		if b > maxValue {
+			maxIndex = i
+			maxValue = b
 		}
 	}
-	joltage, _ := strconv.Atoi(fmt.Sprintf("%d%d", maxTens, maxUnits))
-	// fmt.Printf("Max joltage for bank %v: %v\n", bank, joltage)
+	// fmt.Printf("Selected #%d battery %d @ %d from bank %v\n", 3-nBatteries, maxValue, maxIndex, bank)
+	if nBatteries > 1 {
+		go reportMaxBankJoltageNBatteries(bank[maxIndex+1:], nBatteries-1, c)
+	}
+	joltage := maxValue * int(math.Pow10(nBatteries-1))
 	c <- joltage
 }
