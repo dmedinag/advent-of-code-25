@@ -3,11 +3,11 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"strconv"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -26,9 +26,9 @@ func day1run(cmd *cobra.Command, args []string) {
 	followUp, _ := cmd.Flags().GetBool("follow-up")
 	inputFile, _ := cmd.Flags().GetString("input-file")
 	instructions := readRotations(inputFile)
-	// for _, instr := range instructions {
-	// 	fmt.Println(instr.String())
-	// }
+	for _, instr := range instructions {
+		log.Debug().Msg(instr.String())
+	}
 
 	currentPosition := 50
 	password := 0
@@ -40,7 +40,7 @@ func day1run(cmd *cobra.Command, args []string) {
 		} else {
 			currentPosition += instruction.distance
 		}
-		// fmt.Printf("Position after applying %v: %d\n", instruction, currentPosition)
+		log.Debug().Msgf("Position after applying %v: %d", instruction, currentPosition)
 		if !followUp {
 			if currentPosition%100 == 0 {
 				password++
@@ -48,25 +48,25 @@ func day1run(cmd *cobra.Command, args []string) {
 		} else {
 			// case 1: from one sign to the opposite
 			if previousPosition > 0 && currentPosition <= 0 {
-				// fmt.Println("crossed from positive to negative")
+				log.Debug().Msg("crossed from positive to negative")
 				password++
 			}
 			if previousPosition < 0 && currentPosition >= 0 {
-				// fmt.Println("crossed from negative to positive")
+				log.Debug().Msg("crossed from negative to positive")
 				password++
 			}
 			// case 2: overflowing
 			excess := currentPosition / 100
-			// if excess != 0 {
-			// 	fmt.Printf("overflowed by %d\n", excess)
-			// }
+			if excess != 0 {
+				log.Debug().Msgf("overflowed by %d", excess)
+			}
 			password += int(math.Abs(float64(excess)))
 		}
 
 		currentPosition %= 100
 
 	}
-	fmt.Printf("The password is: %d\n", password)
+	log.Info().Msgf("The password is: %d", password)
 }
 
 type Rotation int
@@ -117,7 +117,7 @@ func parseInstruction(s string) Instruction {
 func readRotations(filename string) []Instruction {
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -129,7 +129,7 @@ func readRotations(filename string) []Instruction {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	return instructions
 }

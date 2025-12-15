@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"bufio"
-	"log"
 	"math"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +45,7 @@ func runDay2(cmd *cobra.Command, args []string) {
 		result += <-exitChan
 	}
 
-	log.Printf("The sum of all invalid ids is %d", result)
+	log.Info().Msgf("The sum of all invalid ids is %d", result)
 }
 
 func reportInvalidIds(r IdRange, exitChan chan int) {
@@ -72,7 +72,7 @@ func reportInvalidIds(r IdRange, exitChan chan int) {
 			break
 		}
 		if candidateInt >= r.Lower {
-			// log.Println("found invalid id candidate", candidateInt, "in range", r)
+			log.Debug().Str("range", r.String()).Msgf("found invalid id candidate %d", candidateInt)
 			sum += candidateInt
 		}
 		// 4. find next candidate (AB[C+1]AB[C+1]), see if it's within range, abort when it isn't
@@ -86,9 +86,9 @@ func reportInvalidIds(r IdRange, exitChan chan int) {
 		lower = nextCandidateInt
 	}
 
-	// if sum == 0 {
-	// 	log.PrintLn("no invalid ids found in range %v", r)
-	// }
+	if sum == 0 {
+		log.Debug().Msgf("no invalid ids found in range %v", r)
+	}
 	exitChan <- sum
 }
 
@@ -128,6 +128,8 @@ func reportInvalidIdsForTargetChainLength(r IdRange, target int, exitChan chan [
 		Upper: len(upperAsStr),
 	}
 
+	logger := log.With().Int("target_chain_length", target).Str("range", r.String()).Logger()
+
 	if lenBounds.Upper >= target*2 {
 		// there exist potential candidates (a target chain fits more than once within the upper bound)
 		// now, lets start from the lower bound and grow from there
@@ -137,7 +139,7 @@ func reportInvalidIdsForTargetChainLength(r IdRange, target int, exitChan chan [
 				// a chain with the target len can bit exactly n times within
 				// an id with the target length. Let's search for potential
 				// chains to be repeated
-				// fmt.Println("Range:", r, "Studying invalid IDs of length", targetIdLen, "due to repeated chains of length", target)
+				logger.Debug().Msgf("Studying invalid IDs of length %d", targetIdLen)
 
 				reps := targetIdLen / target
 
@@ -154,17 +156,17 @@ func reportInvalidIdsForTargetChainLength(r IdRange, target int, exitChan chan [
 					potentialId := strings.Repeat(targetChain, reps)
 					potentialIdInt, _ := strconv.Atoi(potentialId)
 					if potentialIdInt > r.Upper {
-						// fmt.Println("Range:", r, "Potential id", potentialIdInt, "exceeds upper bound. No more invalid ids of length", targetIdLen, "with target chain length", target)
+						logger.Debug().Msgf("Potential id %d exceeds upper bound. No more invalid ids of length %d with target chain length", potentialIdInt, targetIdLen)
 						break
 					}
 					if r.contains(potentialIdInt) {
-						// fmt.Println("Range:", r, "Invalid id", potentialIdInt, "found, chain length", target)
+						logger.Debug().Msgf("Invalid id %v found", potentialIdInt)
 						result = append(result, potentialIdInt)
 					}
 					targetChainInt, _ := strconv.Atoi(targetChain)
 					targetChain = strconv.Itoa(targetChainInt + 1)
 					if targetChainInt >= maxChainInt {
-						// fmt.Println("Range:", r, "Exhausted all potential target chains of length", target, "for ids of length", targetIdLen)
+						logger.Debug().Msgf("Exhausted all potential target chains of length for ids of length %d", targetIdLen)
 						break
 					}
 				}
@@ -172,7 +174,7 @@ func reportInvalidIdsForTargetChainLength(r IdRange, target int, exitChan chan [
 			targetIdLen++
 		}
 	} else {
-		// fmt.Println("Range:", r, "No potential candidates for target chain length", target)
+		logger.Debug().Msgf("No potential candidates for target chain length")
 	}
 
 	exitChan <- result
@@ -183,6 +185,10 @@ type IdRange struct {
 	Upper int
 }
 
+func (r IdRange) String() string {
+	return "[" + strconv.Itoa(r.Lower) + "-" + strconv.Itoa(r.Upper) + "]"
+}
+
 func (r *IdRange) contains(id int) bool {
 	return id >= r.Lower && id <= r.Upper
 }
@@ -190,7 +196,7 @@ func (r *IdRange) contains(id int) bool {
 func IdRangeFromString(s string) IdRange {
 	idPair := strings.Split(s, "-")
 	if idPair == nil || len(idPair) != 2 {
-		log.Fatal("there's no id range on %q", s)
+		log.Fatal().Msgf("there's no id range on %q", s)
 	}
 	lower, _ := strconv.Atoi(idPair[0])
 	upper, _ := strconv.Atoi(idPair[1])
@@ -203,7 +209,7 @@ func IdRangeFromString(s string) IdRange {
 func readIdRanges(filename string) []IdRange {
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -218,7 +224,7 @@ func readIdRanges(filename string) []IdRange {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	return ranges
 }

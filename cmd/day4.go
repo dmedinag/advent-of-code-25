@@ -3,10 +3,10 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -39,7 +39,7 @@ func runDay4(cmd *cobra.Command, args []string) {
 		rollMap := readMap(inputFile)
 		registerNeighbors(&(rollMap.Rolls))
 		accessibleRolls := findAccessibleRolls(&rollMap)
-		log.Printf("There are %d accessible rolls in the map", len(accessibleRolls))
+		log.Info().Msgf("There are %d accessible rolls in the map", len(accessibleRolls))
 	} else {
 		base(inputFile)
 	}
@@ -48,7 +48,7 @@ func runDay4(cmd *cobra.Command, args []string) {
 func base(inputFile string) {
 	file, err := os.Open(inputFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -82,7 +82,7 @@ func base(inputFile string) {
 	go countAccessibleRolls(rows[(middleRowIndex)%3], rows[(middleRowIndex+1)%3], nil, c, toWait-1)
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 
 	accessibleRolls := 0
@@ -90,7 +90,7 @@ func base(inputFile string) {
 		accessibleRolls += <-c
 	}
 
-	log.Printf("There are %d accessible rolls in the map", accessibleRolls)
+	log.Info().Msgf("There are %d accessible rolls in the map", accessibleRolls)
 }
 
 func countAccessibleRolls(prev, cur, next []rune, c chan int, rowIdx int) {
@@ -142,7 +142,7 @@ func countAccessibleRolls(prev, cur, next []rune, c chan int, rowIdx int) {
 			panic(fmt.Sprintf("what is this? I don't know what %c is", r))
 		}
 	}
-	// log.Printf("Found %v accessible rolls in row %v:\n%c\n%c\n%c\n", accessibleRolls, rowIdx, prev, cur, next)
+	log.Trace().Msgf("Found %v accessible rolls in row %v:\n%c\n%c\n%c", accessibleRolls, rowIdx, prev, cur, next)
 	c <- accessibleRolls
 }
 
@@ -167,7 +167,7 @@ func readMap(inputFile string) RollMap {
 
 	file, err := os.Open(inputFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -183,14 +183,14 @@ func readMap(inputFile string) RollMap {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 
-	// log.Println("Found rolls on the following coordinates:")
+	log.Trace().Msg("Found rolls on the following coordinates:")
 	for range rowCount {
 		for _, r := range <-c {
 			result[r.Position] = &r
-			// log.Printf("(%d, %d)\n", r.Position.Row, r.Position.Col)
+			log.Trace().Msgf("(%d, %d)\n", r.Position.Row, r.Position.Col)
 		}
 	}
 
@@ -217,7 +217,7 @@ func registerNeighbors(rolls *map[Coordinates]*Roll) {
 	for pos, r := range *rolls {
 		for _, target := range pos.Adjacent() {
 			if other, found := (*rolls)[target]; found {
-				// log.Printf("%v and %v found as neighbors\n", pos, target)
+				log.Trace().Msgf("%v and %v found as neighbors", pos, target)
 				other.registerNeighbor(r)
 				r.registerNeighbor(other)
 			}
@@ -233,30 +233,30 @@ func findAccessibleRolls(rollMap *RollMap) []*Roll {
 		candidates = append(candidates, r)
 	}
 
-	log.Printf("Got %v candidates to assess, map:\n%v\n", len(candidates), *rollMap)
+	log.Debug().Msgf("Got %v candidates to assess, map:\n%v", len(candidates), *rollMap)
 
 	for len(candidates) > 0 {
 		nextCandidates := map[Coordinates]*Roll{}
 		for _, roll := range candidates {
-			// log.Printf("Assessing roll at %v, with neighbors:\n", roll.Position)
-			// for _, n := range roll.neighbors {
-			// 	if !n.IsRemoved() {
-			// 		log.Printf(" - %v\n", n.Position)
-			// 	}
-			// }
+			log.Trace().Msgf("Assessing roll at %v, with neighbors:", roll.Position)
+			for _, n := range roll.neighbors {
+				if !n.IsRemoved() {
+					log.Trace().Msgf(" - %v", n.Position)
+				}
+			}
 			if roll.tryRemove() {
-				// log.Printf("Roll at %v is accessible, map:\n%v\n", roll.Position, *rollMap)
+				log.Debug().Msgf("Roll at %v is accessible, map:\n%vn", roll.Position, *rollMap)
 				accessibleRollsSet[roll.Position] = roll
 				for c, r := range roll.neighbors {
 					if !r.IsRemoved() {
-						// log.Printf("Registering neighbor at %v as candidate for next round", c)
+						log.Trace().Msgf("Registering neighbor at %v as candidate for next round", c)
 						nextCandidates[c] = r
-						// } else {
-						// log.Printf("Neighbor at %v is already removed, skipping", c)
+					} else {
+						log.Trace().Msgf("Neighbor at %v is already removed, skipping", c)
 					}
 				}
-				// } else {
-				// log.Printf("Roll at %v is not accessible", roll.Position)
+			} else {
+				log.Trace().Msgf("Roll at %v is not accessible", roll.Position)
 			}
 		}
 		candidates = []*Roll{}

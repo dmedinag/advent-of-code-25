@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"bufio"
-	"log"
 	"math"
 	"os"
 
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -26,9 +26,9 @@ func day3Run(cmd *cobra.Command, args []string) {
 
 	banks := readBatteryBanks(inputFile)
 
-	// for i, b := range banks {
-	// 	fmt.Printf("Bank %d: %v\n", i, b)
-	// }
+	for i, b := range banks {
+		log.Debug().Msgf("Bank %d: %v", i, b)
+	}
 	commsChan := make(chan int)
 
 	var nBatteries int
@@ -46,13 +46,13 @@ func day3Run(cmd *cobra.Command, args []string) {
 	for range len(banks) * nBatteries {
 		joltage += <-commsChan
 	}
-	log.Printf("Total joltage using max %d batteries per bank: %d\n", nBatteries, joltage)
+	log.Info().Msgf("Total joltage using max %d batteries per bank: %d", nBatteries, joltage)
 }
 
 func readBatteryBanks(filename string) [][]int {
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -64,7 +64,7 @@ func readBatteryBanks(filename string) [][]int {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Send()
 	}
 	return batteryBanks
 }
@@ -100,7 +100,7 @@ func reportMaxBankJoltageNBatteries(bank []int, nBatteries int, c chan int) {
 			maxValue = b
 		}
 	}
-	// fmt.Printf("Selected #%d battery %d @ %d from bank %v\n", 3-nBatteries, maxValue, maxIndex, bank)
+	log.Debug().Msgf("Selected #%d battery %d @ %d from bank %v", 3-nBatteries, maxValue, maxIndex, bank)
 	if nBatteries > 1 {
 		go reportMaxBankJoltageNBatteries(bank[maxIndex+1:], nBatteries-1, c)
 	}
