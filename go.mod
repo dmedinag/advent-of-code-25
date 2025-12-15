@@ -3,6 +3,7 @@ module dmedinag/adventofcode2025
 go 1.25.4
 
 require (
+	github.com/deckarep/golang-set/v2 v2.8.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.10.2
 )
