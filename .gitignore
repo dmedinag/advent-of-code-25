@@ -28,3 +28,4 @@ go.work.sum
 # .idea/
 # .vscode/
 adventofcode2025
+out.txt
