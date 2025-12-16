@@ -6,6 +6,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.8.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.10.2
+	github.com/vallerion/rscanner v0.0.0-20230822073625-4f90454447a3
 )
 
 require (
