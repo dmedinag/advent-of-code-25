@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
+	"unicode"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -23,6 +23,7 @@ func init() {
 
 func runDay6(cmd *cobra.Command, args []string) {
 	inputFilename, _ := cmd.Flags().GetString("input-file")
+	isFollowUp, _ := cmd.Flags().GetBool("follow-up")
 	file, err := os.Open(inputFilename)
 	if err != nil {
 		log.Fatal().Err(err).Send()
@@ -31,38 +32,18 @@ func runDay6(cmd *cobra.Command, args []string) {
 
 	scanner := rscanner.NewScanner(file, fs.Size())
 
-	operations := []*Operation{}
-
 	// get operators
 	for scanner.Scan() {
 		if scanner.Text() != "" {
 			break
 		}
 	}
-	log.Trace().Msgf("Scanning operations from last line %q", scanner.Text())
-	for _, o := range scanner.Text() {
-		if o == ' ' {
-			continue
-		}
-		operator, err := ParseOperator(o)
-		if err != nil {
-			log.Fatal().Err(err).Send()
-		}
-		operation := &Operation{Operator: operator}
-		operation.Init()
-		log.Trace().Msgf("Parsed operator: %v", operator)
-		operations = append(operations, operation)
-	}
 
-	// compute results
+	operations := parseOperations(scanner.Text())
+
 	for scanner.Scan() {
-		log.Trace().Msgf("Scanning operands from line %v", scanner.Text())
-		for i, strNum := range strings.Fields(scanner.Text()) {
-			num, _ := strconv.Atoi(strNum)
-			operation := operations[i]
-			log.Trace().Msgf("Parsed operand: %v for operation %v", num, operation)
-			operation.Operate(num)
-		}
+		line := scanner.Text()
+		parseOperands(operations, line, isFollowUp)
 	}
 
 	if scanner.Err() != nil {
@@ -72,15 +53,75 @@ func runDay6(cmd *cobra.Command, args []string) {
 	// aggregate operations
 	result := 0
 	for _, op := range operations {
-		result += op.Result
+		partialResult := op.Result
+		if isFollowUp {
+			partialResult = op.GetVerticalResult()
+		}
+		result += partialResult
 	}
 
 	log.Info().Msgf("The result of the cephalopod math is: %d", result)
 }
 
+func parseOperations(line string) []*Operation {
+	operations := []*Operation{}
+	operandSize := 0
+	operator := Unknown
+
+	log.Trace().Msgf("Scanning operations from last line %q", line)
+	for _, o := range line {
+		if o == ' ' {
+			operandSize++
+			continue
+		}
+		newOperator, err := ParseOperator(o)
+		if err != nil {
+			log.Fatal().Err(err).Send()
+		}
+		if operandSize == 0 {
+			// special case for first operator
+			operandSize++
+			operator = newOperator
+			continue
+		}
+		operation := &Operation{Operator: operator, operandSize: operandSize - 1}
+		operation.Init()
+		log.Trace().Msgf("Created operation: %v", operation)
+		log.Trace().Msgf("Parsed operator: %v, computing operand size", newOperator)
+		operations = append(operations, operation)
+		operandSize = 1
+		operator = newOperator
+	}
+
+	operation := &Operation{Operator: operator, operandSize: operandSize}
+	operation.Init()
+	log.Trace().Msgf("Created final operation: %v", operation)
+	operations = append(operations, operation)
+
+	return operations
+}
+
+func parseOperands(operations []*Operation, line string, isFollowUp bool) {
+	log.Trace().Msgf("Scanning operands from line %v", line)
+	cursor := 0
+	for _, op := range operations {
+		numStr := line[cursor : cursor+op.operandSize]
+		cursor += op.operandSize + 1
+		log.Trace().Msgf("Parsed operand: %q for operation %v", numStr, op)
+		if isFollowUp {
+			op.OperateVertical(numStr)
+		} else {
+			num, _ := strconv.Atoi(numStr)
+			op.Operate(num)
+		}
+	}
+}
+
 type Operation struct {
 	Operator    Operator
 	Result      int
+	operandSize int
+	cache       [][]rune
 	initialized bool
 }
 
@@ -97,8 +138,40 @@ func (o *Operation) Operate(operand int) {
 	log.Trace().Msgf("New value: %v", o.Result)
 }
 
+func (o *Operation) OperateVertical(operand string) {
+	parsedOperand := []rune{}
+	for _, digit := range operand {
+		parsedOperand = append(parsedOperand, digit)
+	}
+
+	o.cache = append(o.cache, parsedOperand)
+}
+
+func (o *Operation) GetVerticalResult() int {
+	operands := []int{}
+	// operandsFromCache
+	for i := range o.operandSize {
+		operand := ""
+		for _, row := range o.cache {
+			if unicode.IsNumber(row[i]) {
+				operand = string(row[i]) + operand
+			}
+		}
+		operandInt, err := strconv.Atoi(operand)
+		if err != nil {
+			log.Panic().Err(err).Msgf("failed to parse operand %q", operand)
+		}
+		log.Debug().Str("operation", o.String()).Msgf("Found operand %d", operandInt)
+		operands = append(operands, operandInt)
+	}
+	for _, operand := range operands {
+		o.Result = o.Operator.Apply(o.Result, operand)
+	}
+	return o.Result
+}
+
 func (o Operation) String() string {
-	return fmt.Sprintf("Operation %v, current accummulation %v", o.Operator, o.Result)
+	return fmt.Sprintf("Operation {%v, size %d}", o.Operator, o.operandSize)
 }
 
 func (o *Operation) Init() {
