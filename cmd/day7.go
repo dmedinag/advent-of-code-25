@@ -27,12 +27,14 @@ func runDay7(cmd *cobra.Command, args []string) {
 	inputFilename, _ := cmd.Flags().GetString("input-file")
 	isFollowUp, _ := cmd.Flags().GetBool("follow-up")
 
+	startCol, rowCount, splits := parseTachyonInput(inputFilename)
+	log.Trace().Msgf("Start column: %d, row count: %d", startCol, rowCount)
+	log.Trace().Msgf("All splits %v", &splits)
+
 	if isFollowUp {
-		panic("not implemented")
+		result := countPaths(splits, startCol, rowCount)
+		log.Info().Msgf("There are %d possible paths for the particle", result)
 	} else {
-		startCol, rowCount, splits := parseTachyonInput(inputFilename)
-		log.Trace().Msgf("Start column: %d, row count: %d", startCol, rowCount)
-		log.Trace().Msgf("All splits %v", &splits)
 		result := traceRays(splits, startCol, rowCount)
 		log.Info().Msgf("Split %d times", result)
 	}
@@ -60,6 +62,46 @@ func traceRays(splits *sync.Map, startCol, rowCount int) int {
 		rays = nextRays
 	}
 	return int(splitCount.Load())
+}
+
+func countPaths(splits *sync.Map, startCol, rowCount int) int {
+	paths := mapset.NewSet[*path]()
+	paths.Add(&path{ray: startCol, origins: 1})
+	for row := range rowCount {
+		nextRays := map[int]int{}
+		for p := range paths.Iterator().C {
+			targetPosition := position{row: row, col: p.ray}
+			_, exists := splits.Load(targetPosition)
+			if exists {
+				addOrIncrease(nextRays, p.ray-1, p.origins)
+				addOrIncrease(nextRays, p.ray+1, p.origins)
+			} else {
+				addOrIncrease(nextRays, p.ray, p.origins)
+			}
+		}
+		paths = mapset.NewSet[*path]()
+		for k, v := range nextRays {
+			paths.Add(&path{ray: k, origins: v})
+		}
+	}
+	splitCount := 0
+	for p := range paths.Iterator().C {
+		splitCount += p.origins
+	}
+	return splitCount
+}
+
+func addOrIncrease(m map[int]int, key, delta int) {
+	if prev, exists := m[key]; !exists {
+		m[key] = delta
+	} else {
+		m[key] = prev + delta
+	}
+}
+
+type path struct {
+	ray     int
+	origins int
 }
 
 func parseTachyonInput(inputFilename string) (startCol int, rowCount int, splits *sync.Map) {
